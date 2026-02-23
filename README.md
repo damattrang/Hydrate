@@ -1,8 +1,6 @@
-<img width="175" align="right" src="https://git.gay/nguyencaoantuong/stuff/raw/branch/main/moonlight.png">
+# noonium
 
-# Moonlight
-
-Lightweight kernel manager for Android.
+Another lightweight kernel manager for Android.
 
 ## Install
 
@@ -19,8 +17,3 @@ gradle w
 chmod +x gradlew
 ./gradlew assembleRelease 
 ```
-
-- [**Install from Releases**](https://git.gay/nguyencaoantuong/Moonlight/releases)
-
-## Credits:
-- [ngbnamm](https://git.bnamm.org/namm) - README.
