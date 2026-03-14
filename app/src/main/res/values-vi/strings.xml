@@ -4,6 +4,13 @@
     <string name="tweaks">Tinh chỉnh</string>
     <string name="more">Thêm</string>
     <string name="settings">Tùy biến</string>
+    <string name="reboot">Khởi động lại</string>
+    <string name="reboot_system">Hệ thống</string>
+    <string name="reboot_recovery">Recovery</string>
+    <string name="reboot_bootloader">Bootloader</string>
+    <string name="reboot_fastboot">Fastboot</string>
+    <string name="reboot_edl">EDL</string>
+    <string name="reboot_download">Download</string>
     <string name="system_information">Thông tin hệ thống</string>
     <string name="rom_information">Thông tin ROM</string>
     <string name="android_version">Android %1$s</string>

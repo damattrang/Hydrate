@@ -54,6 +54,7 @@ import androidx.compose.material.icons.outlined.Memory
 import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.PlayCircleOutline
+import androidx.compose.material.icons.outlined.RestartAlt
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.Timer
@@ -148,12 +149,13 @@ fun createLocaleContext(language: String): Context {
 fun HydrateApp(theme: MutableState<Theme>, language: MutableState<String>, isRootGranted: Boolean) {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
     val isDark = isDark(theme.value)
+    var showRebootMenu by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
-            // Precise Floating Pill Navigation Bar matching user image
+            // Precise Floating Pill Navigation Bar
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -162,7 +164,7 @@ fun HydrateApp(theme: MutableState<Theme>, language: MutableState<String>, isRoo
             ) {
                 Surface(
                     shape = CircleShape,
-                    color = Color(0xFF121212), // Very dark background like the image
+                    color = Color(0xFF121212),
                     tonalElevation = 0.dp,
                     shadowElevation = 8.dp,
                     modifier = Modifier
@@ -180,42 +182,24 @@ fun HydrateApp(theme: MutableState<Theme>, language: MutableState<String>, isRoo
                             if (!destination.requiresRoot || isRootGranted) {
                                 val isSelected = destination == currentDestination
                                 
-                                Box(
-                                    modifier = Modifier
-                                        .clip(CircleShape)
-                                        .background(
-                                            if (isSelected) Color(0xFFC62828) // Deep Red like the image
-                                            else Color.Transparent
+                                if (destination == AppDestinations.REBOOT) {
+                                    Box {
+                                        NavBarItem(
+                                            destination = destination,
+                                            isSelected = false,
+                                            onClick = { showRebootMenu = true }
                                         )
-                                        .clickable(
-                                            interactionSource = remember { MutableInteractionSource() },
-                                            indication = null
-                                        ) { currentDestination = destination }
-                                        .padding(horizontal = if (isSelected) 20.dp else 12.dp, vertical = 12.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = destination.icon,
-                                            contentDescription = stringResource(id = destination.label),
-                                            modifier = Modifier.size(22.dp),
-                                            tint = if (isSelected) Color.White 
-                                                   else Color(0xFF9E9E9E) // Grey for unselected
+                                        RebootDropdownMenu(
+                                            expanded = showRebootMenu,
+                                            onDismissRequest = { showRebootMenu = false }
                                         )
-                                        if (isSelected) {
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text(
-                                                text = stringResource(id = destination.label),
-                                                color = Color.White,
-                                                fontSize = 14.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                maxLines = 1
-                                            )
-                                        }
                                     }
+                                } else {
+                                    NavBarItem(
+                                        destination = destination,
+                                        isSelected = isSelected,
+                                        onClick = { currentDestination = destination }
+                                    )
                                 }
                             }
                         }
@@ -230,8 +214,83 @@ fun HydrateApp(theme: MutableState<Theme>, language: MutableState<String>, isRoo
                 AppDestinations.TWEAKS -> TweaksScreen(theme.value)
                 AppDestinations.MORE -> MoreScreen(theme.value)
                 AppDestinations.SETTINGS -> SettingsScreen(theme = theme, language = language)
+                else -> HomeScreen(theme.value)
             }
         }
+    }
+}
+
+@Composable
+fun NavBarItem(destination: AppDestinations, isSelected: Boolean, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .clip(CircleShape)
+            .background(if (isSelected) Color(0xFFC62828) else Color.Transparent)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) { onClick() }
+            .padding(horizontal = if (isSelected) 20.dp else 12.dp, vertical = 12.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = destination.icon,
+                contentDescription = stringResource(id = destination.label),
+                modifier = Modifier.size(22.dp),
+                tint = if (isSelected) Color.White else Color(0xFF9E9E9E)
+            )
+            if (isSelected) {
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = stringResource(id = destination.label),
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun RebootDropdownMenu(expanded: Boolean, onDismissRequest: () -> Unit) {
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = onDismissRequest,
+        modifier = Modifier.background(Color(0xFF1E1E1E))
+    ) {
+        val options = listOf(
+            R.string.reboot_system to "",
+            R.string.reboot_recovery to "recovery",
+            R.string.reboot_bootloader to "bootloader",
+            R.string.reboot_fastboot to "fastboot",
+            R.string.reboot_edl to "edl",
+            R.string.reboot_download to "download"
+        )
+        
+        options.forEach { (labelRes, command) ->
+            DropdownMenuItem(
+                text = { Text(stringResource(id = labelRes), color = Color.White) },
+                onClick = {
+                    rebootDevice(command)
+                    onDismissRequest()
+                }
+            )
+        }
+    }
+}
+
+private fun rebootDevice(reason: String) {
+    try {
+        val cmd = if (reason.isEmpty()) "reboot" else "reboot $reason"
+        Runtime.getRuntime().exec(arrayOf("su", "-c", cmd))
+    } catch (e: Exception) {
+        e.printStackTrace()
     }
 }
 
@@ -547,6 +606,7 @@ enum class AppDestinations(
 ) {
     HOME(R.string.home, Icons.Outlined.Home),
     TWEAKS(R.string.tweaks, Icons.Outlined.Extension, requiresRoot = true),
+    REBOOT(R.string.reboot, Icons.Outlined.RestartAlt, requiresRoot = true),
     MORE(R.string.more, Icons.Outlined.Shield),
     SETTINGS(R.string.settings, Icons.Outlined.Assignment),
 }
