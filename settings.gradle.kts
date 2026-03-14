@@ -20,5 +20,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "noonium"
+rootProject.name = "HydrateLabs"
 include(":app")

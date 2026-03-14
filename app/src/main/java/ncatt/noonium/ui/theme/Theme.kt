@@ -1,4 +1,4 @@
-package ncatt.noonium.ui.theme
+package com.hydrate.labs.ui.theme
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -35,14 +35,14 @@ enum class Theme {
 }
 
 /**
- * Main theme composable for the noonium application.
+ * Main theme composable for the HydrateLabs application.
  *
  * @param theme The [Theme] to apply. Defaults to [Theme.SYSTEM].
  * @param dynamicColor Whether to use dynamic color (Material You) on supported Android versions (API 31+).
  * @param content The composable content to be themed.
  */
 @Composable
-fun nooniumTheme(
+fun hydrateTheme(
     theme: Theme = Theme.SYSTEM,
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit

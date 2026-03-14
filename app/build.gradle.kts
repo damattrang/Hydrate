@@ -5,15 +5,15 @@ plugins {
 }
 
 android {
-    namespace = "ncatt.noonium"
+    namespace = "com.hydrate.labs"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "ncatt.noonium"
+        applicationId = "com.hydrate.labs"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "Helium"
+        versionCode = 2
+        versionName = "Hydrogen"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
