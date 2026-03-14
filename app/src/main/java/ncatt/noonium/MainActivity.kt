@@ -63,6 +63,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -80,6 +81,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import ncatt.noonium.ui.theme.nooniumTheme
 import ncatt.noonium.ui.theme.Theme
 import java.util.Locale
@@ -94,12 +97,28 @@ class MainActivity : ComponentActivity() {
             val sharedPref = remember { context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE) }
             val theme = remember { mutableStateOf(Theme.valueOf(sharedPref.getString("theme", "SYSTEM") ?: "SYSTEM")) }
             val language = remember { mutableStateOf(sharedPref.getString("language", "en") ?: "en") }
+            var rootGranted by remember { mutableStateOf(false) }
+
+            LaunchedEffect(Unit) {
+                rootGranted = checkRootAccess()
+            }
 
             CompositionLocalProvider(LocalContext provides createLocaleContext(language.value)) {
                 nooniumTheme(theme = theme.value) {
-                    nooniumApp(theme, language)
+                    nooniumApp(theme, language, rootGranted)
                 }
             }
+        }
+    }
+
+    private suspend fun checkRootAccess(): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val process = Runtime.getRuntime().exec("su -c id")
+            val output = process.inputStream.bufferedReader().use { it.readLine() }
+            process.waitFor()
+            output != null && output.contains("uid=0")
+        } catch (e: Exception) {
+            false
         }
     }
 }
@@ -115,18 +134,21 @@ fun createLocaleContext(language: String): Context {
 }
 
 @Composable
-fun nooniumApp(theme: MutableState<Theme>, language: MutableState<String>) {
+fun nooniumApp(theme: MutableState<Theme>, language: MutableState<String>, isRootGranted: Boolean) {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
 
     NavigationSuiteScaffold(
         navigationSuiteItems = {
             AppDestinations.entries.forEach { destination ->
-                item(
-                    icon = { Icon(destination.icon, contentDescription = stringResource(id = destination.label)) },
-                    label = { Text(stringResource(id = destination.label)) },
-                    selected = destination == currentDestination,
-                    onClick = { currentDestination = destination }
-                )
+                // Only show Tweaks if root is granted
+                if (!destination.requiresRoot || isRootGranted) {
+                    item(
+                        icon = { Icon(destination.icon, contentDescription = stringResource(id = destination.label)) },
+                        label = { Text(stringResource(id = destination.label)) },
+                        selected = destination == currentDestination,
+                        onClick = { currentDestination = destination }
+                    )
+                }
             }
         }
     ) {
@@ -445,9 +467,10 @@ fun ThemeName(theme: Theme): String {
 enum class AppDestinations(
     @StringRes val label: Int,
     val icon: ImageVector,
+    val requiresRoot: Boolean = false
 ) {
     HOME(R.string.home, Icons.Outlined.Home),
-    TWEAKS(R.string.tweaks, Icons.Outlined.Tune),
+    TWEAKS(R.string.tweaks, Icons.Outlined.Tune, requiresRoot = true),
     MORE(R.string.more, Icons.Outlined.MoreHoriz),
     SETTINGS(R.string.settings, Icons.Outlined.ManageAccounts),
 }
