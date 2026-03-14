@@ -1,4 +1,4 @@
-# noonium
+# Hydrate
 
 Another lightweight kernel manager for Android.
 
@@ -10,7 +10,6 @@ Another lightweight kernel manager for Android.
     - Security patch level
     - Model and Manufacturer
     - Build number and Fingerprint
-    - Sim Provider (eSIM)
 - **Theme Support:** Supports Light, Dark, and System default themes with Material You (dynamic color) support on Android 12+.
 - **Localization:** Available in English and Tiếng Việt.
 - **Modern UI:** Built using Jetpack Compose and Material 3 with a responsive navigation suite.
