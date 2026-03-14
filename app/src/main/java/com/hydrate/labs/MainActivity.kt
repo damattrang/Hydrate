@@ -13,8 +13,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.annotation.StringRes
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,7 +31,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -56,9 +62,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -146,44 +149,70 @@ fun HydrateApp(theme: MutableState<Theme>, language: MutableState<String>, isRoo
         modifier = Modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
-            // Floating Bottom Navigation Bar
+            // New Custom Pill-Style Floating Navigation Bar
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 24.dp)
+                    .padding(bottom = 32.dp),
+                contentAlignment = Alignment.BottomCenter
             ) {
                 Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    color = if (isDark) Color(0xFF2D2F31).copy(alpha = 0.92f) else Color.White.copy(alpha = 0.92f),
+                    shape = CircleShape,
+                    color = if (isDark) Color(0xFF1A1C1E).copy(alpha = 0.95f) else Color.White.copy(alpha = 0.95f),
                     tonalElevation = 8.dp,
-                    shadowElevation = 16.dp
+                    shadowElevation = 12.dp,
+                    modifier = Modifier
+                        .padding(horizontal = 32.dp)
+                        .wrapContentHeight()
                 ) {
-                    NavigationBar(
-                        containerColor = Color.Transparent,
-                        tonalElevation = 0.dp,
-                        modifier = Modifier.height(64.dp)
+                    Row(
+                        modifier = Modifier
+                            .padding(horizontal = 8.dp, vertical = 8.dp)
+                            .animateContentSize(animationSpec = tween(durationMillis = 300)),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         AppDestinations.entries.forEach { destination ->
                             if (!destination.requiresRoot || isRootGranted) {
                                 val isSelected = destination == currentDestination
-                                NavigationBarItem(
-                                    selected = isSelected,
-                                    onClick = { currentDestination = destination },
-                                    icon = {
+                                
+                                Box(
+                                    modifier = Modifier
+                                        .clip(CircleShape)
+                                        .background(
+                                            if (isSelected) MaterialTheme.colorScheme.primary 
+                                            else Color.Transparent
+                                        )
+                                        .clickable(
+                                            interactionSource = remember { MutableInteractionSource() },
+                                            indication = null
+                                        ) { currentDestination = destination }
+                                        .padding(horizontal = if (isSelected) 16.dp else 12.dp, vertical = 10.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
                                         Icon(
                                             imageVector = destination.icon,
                                             contentDescription = stringResource(id = destination.label),
-                                            modifier = Modifier.size(26.dp)
+                                            modifier = Modifier.size(24.dp),
+                                            tint = if (isSelected) Color.White 
+                                                   else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                                         )
-                                    },
-                                    alwaysShowLabel = false,
-                                    colors = NavigationBarItemDefaults.colors(
-                                        selectedIconColor = MaterialTheme.colorScheme.primary,
-                                        indicatorColor = Color.Transparent,
-                                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                                    )
-                                )
+                                        if (isSelected) {
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = stringResource(id = destination.label),
+                                                color = Color.White,
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                maxLines = 1
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
