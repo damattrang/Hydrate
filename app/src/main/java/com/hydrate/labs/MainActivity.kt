@@ -13,9 +13,24 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.annotation.StringRes
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -27,6 +42,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -84,6 +100,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -148,34 +166,40 @@ fun createLocaleContext(language: String): Context {
 @Composable
 fun HydrateApp(theme: MutableState<Theme>, language: MutableState<String>, isRootGranted: Boolean) {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
-    val isDark = isDark(theme.value)
     var showRebootMenu by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
-            // Precise Floating Pill Navigation Bar
+            // Material 3 Expressive Floating Navigation Bar
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 32.dp),
+                    .navigationBarsPadding()
+                    .padding(bottom = 24.dp),
                 contentAlignment = Alignment.BottomCenter
             ) {
                 Surface(
                     shape = CircleShape,
-                    color = Color(0xFF121212),
-                    tonalElevation = 0.dp,
-                    shadowElevation = 8.dp,
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.9f),
+                    tonalElevation = 8.dp,
+                    shadowElevation = 16.dp,
                     modifier = Modifier
                         .wrapContentWidth()
                         .wrapContentHeight()
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f), CircleShape)
                 ) {
                     Row(
                         modifier = Modifier
-                            .padding(8.dp)
-                            .animateContentSize(animationSpec = tween(durationMillis = 300)),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            .padding(horizontal = 14.dp, vertical = 10.dp)
+                            .animateContentSize(
+                                animationSpec = spring(
+                                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                                    stiffness = Spring.StiffnessLow
+                                )
+                            ),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         AppDestinations.entries.forEach { destination ->
@@ -209,12 +233,22 @@ fun HydrateApp(theme: MutableState<Theme>, language: MutableState<String>, isRoo
         }
     ) { innerPadding ->
         Box(modifier = Modifier.padding(innerPadding)) {
-            when (currentDestination) {
-                AppDestinations.HOME -> HomeScreen(theme.value)
-                AppDestinations.TWEAKS -> TweaksScreen(theme.value)
-                AppDestinations.MORE -> MoreScreen(theme.value)
-                AppDestinations.SETTINGS -> SettingsScreen(theme = theme, language = language)
-                else -> HomeScreen(theme.value)
+            AnimatedContent(
+                targetState = currentDestination,
+                transitionSpec = {
+                    (fadeIn(animationSpec = tween(500, delayMillis = 100)) + 
+                     slideInVertically(initialOffsetY = { it / 10 }, animationSpec = spring(stiffness = Spring.StiffnessLow)))
+                    .togetherWith(fadeOut(animationSpec = tween(300)))
+                },
+                label = "ScreenTransition"
+            ) { targetDestination ->
+                when (targetDestination) {
+                    AppDestinations.HOME -> HomeScreen(theme.value)
+                    AppDestinations.TWEAKS -> TweaksScreen(theme.value)
+                    AppDestinations.MORE -> MoreScreen(theme.value)
+                    AppDestinations.SETTINGS -> SettingsScreen(theme = theme, language = language)
+                    else -> HomeScreen(theme.value)
+                }
             }
         }
     }
@@ -222,15 +256,31 @@ fun HydrateApp(theme: MutableState<Theme>, language: MutableState<String>, isRoo
 
 @Composable
 fun NavBarItem(destination: AppDestinations, isSelected: Boolean, onClick: () -> Unit) {
+    val backgroundColor by animateColorAsState(
+        targetValue = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        label = "BgColor"
+    )
+    val contentColor by animateColorAsState(
+        targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+        label = "ContentColor"
+    )
+    val scale by animateFloatAsState(
+        targetValue = if (isSelected) 1.05f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "Scale"
+    )
+
     Box(
         modifier = Modifier
+            .scale(scale)
             .clip(CircleShape)
-            .background(if (isSelected) Color(0xFFC62828) else Color.Transparent)
+            .background(backgroundColor)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null
             ) { onClick() }
-            .padding(horizontal = if (isSelected) 20.dp else 12.dp, vertical = 12.dp),
+            .padding(horizontal = if (isSelected) 24.dp else 16.dp, vertical = 12.dp),
         contentAlignment = Alignment.Center
     ) {
         Row(
@@ -240,18 +290,24 @@ fun NavBarItem(destination: AppDestinations, isSelected: Boolean, onClick: () ->
             Icon(
                 imageVector = destination.icon,
                 contentDescription = stringResource(id = destination.label),
-                modifier = Modifier.size(22.dp),
-                tint = if (isSelected) Color.White else Color(0xFF9E9E9E)
+                modifier = Modifier.size(26.dp),
+                tint = contentColor
             )
-            if (isSelected) {
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = stringResource(id = destination.label),
-                    color = Color.White,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1
-                )
+            AnimatedVisibility(
+                visible = isSelected,
+                enter = fadeIn() + scaleIn(initialScale = 0.7f),
+                exit = fadeOut() + scaleOut(targetScale = 0.7f)
+            ) {
+                Row {
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = stringResource(id = destination.label),
+                        color = contentColor,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
+                    )
+                }
             }
         }
     }
@@ -259,28 +315,41 @@ fun NavBarItem(destination: AppDestinations, isSelected: Boolean, onClick: () ->
 
 @Composable
 fun RebootDropdownMenu(expanded: Boolean, onDismissRequest: () -> Unit) {
-    DropdownMenu(
-        expanded = expanded,
-        onDismissRequest = onDismissRequest,
-        modifier = Modifier.background(Color(0xFF1E1E1E))
+    MaterialTheme(
+        shapes = MaterialTheme.shapes.copy(extraLarge = RoundedCornerShape(32.dp))
     ) {
-        val options = listOf(
-            R.string.reboot_system to "",
-            R.string.reboot_recovery to "recovery",
-            R.string.reboot_bootloader to "bootloader",
-            R.string.reboot_fastboot to "fastboot",
-            R.string.reboot_edl to "edl",
-            R.string.reboot_download to "download"
-        )
-        
-        options.forEach { (labelRes, command) ->
-            DropdownMenuItem(
-                text = { Text(stringResource(id = labelRes), color = Color.White) },
-                onClick = {
-                    rebootDevice(command)
-                    onDismissRequest()
-                }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = onDismissRequest,
+            modifier = Modifier
+                .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                .padding(8.dp)
+        ) {
+            val options = listOf(
+                R.string.reboot_system to "",
+                R.string.reboot_recovery to "recovery",
+                R.string.reboot_bootloader to "bootloader",
+                R.string.reboot_fastboot to "fastboot",
+                R.string.reboot_edl to "edl",
+                R.string.reboot_download to "download"
             )
+            
+            options.forEach { (labelRes, command) ->
+                DropdownMenuItem(
+                    text = { 
+                        Text(
+                            stringResource(id = labelRes), 
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 16.sp
+                        ) 
+                    },
+                    onClick = {
+                        rebootDevice(command)
+                        onDismissRequest()
+                    }
+                )
+            }
         }
     }
 }
@@ -297,65 +366,130 @@ private fun rebootDevice(reason: String) {
 @Composable
 fun BrandingTitle() {
     Text(
-        text = "HydrateLabs",
-        fontSize = 20.sp,
-        fontWeight = FontWeight.ExtraBold,
+        text = "HYDRATE LABS",
+        fontSize = 14.sp,
+        fontWeight = FontWeight.Black,
         color = MaterialTheme.colorScheme.primary,
+        letterSpacing = 4.sp,
         modifier = Modifier.padding(bottom = 4.dp)
     )
 }
 
 @Composable
 fun HomeScreen(theme: Theme) {
-    val isDark = isDark(theme)
-    val cardContainerColor = if (isDark) Color(0xFF1A1C1E) else Color(0xFFE8EAF6)
-    val headerIconBoxColor = if (isDark) Color(0xFF303440) else Color(0xFFC5CAE9)
-    val headerIconColor = if (isDark) Color(0xFF90CAF9) else Color(0xFF3F51B5)
-    val textColor = if (isDark) Color.White else Color.Black
-    val innerCardColor = if (isDark) Color(0xFF24292E) else Color.White
-    val dividerColor = if (isDark) Color.White.copy(alpha = 0.1f) else Color.LightGray.copy(alpha = 0.4f)
-    val versionTextColor = if (isDark) Color(0xFF64B5F6) else Color(0xFF1976D2)
+    val scrollState = rememberScrollState()
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
             .padding(24.dp),
         horizontalAlignment = Alignment.Start,
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         BrandingTitle()
-        Text(stringResource(id = R.string.home), fontSize = 32.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
-        Text(stringResource(id = R.string.system_information), fontSize = 16.sp, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f))
-        Spacer(modifier = Modifier.height(24.dp))
-        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(32.dp), colors = CardDefaults.cardColors(containerColor = cardContainerColor)) {
-            Column {
-                Row(modifier = Modifier.fillMaxWidth().padding(24.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(modifier = Modifier.size(56.dp).clip(RoundedCornerShape(16.dp)).background(headerIconBoxColor), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Outlined.GridView, contentDescription = null, tint = headerIconColor, modifier = Modifier.size(28.dp))
+        Text(
+            text = stringResource(id = R.string.home),
+            fontSize = 48.sp,
+            fontWeight = FontWeight.Black,
+            color = MaterialTheme.colorScheme.onBackground,
+            lineHeight = 52.sp
+        )
+        Text(
+            text = stringResource(id = R.string.system_information),
+            fontSize = 18.sp,
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+            fontWeight = FontWeight.Bold
+        )
+        
+        Spacer(modifier = Modifier.height(32.dp))
+        
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(40.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainer
+            )
+        ) {
+            Column(modifier = Modifier.padding(28.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        modifier = Modifier.size(72.dp),
+                        shape = RoundedCornerShape(24.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        shadowElevation = 8.dp
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Outlined.GridView,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.size(36.dp)
+                            )
+                        }
                     }
-                    Spacer(modifier = Modifier.width(16.dp))
+                    Spacer(modifier = Modifier.width(24.dp))
                     Column {
-                        Text(stringResource(id = R.string.rom_information), fontSize = 22.sp, fontWeight = FontWeight.Bold, color = textColor)
-                        Text("${Build.MANUFACTURER} ${Build.MODEL}", fontSize = 15.sp, color = if (isDark) Color.LightGray else Color.DarkGray)
+                        Text(
+                            stringResource(id = R.string.rom_information),
+                            fontSize = 26.sp,
+                            fontWeight = FontWeight.Black,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            "${Build.MANUFACTURER} ${Build.MODEL}",
+                            fontSize = 18.sp,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                            fontWeight = FontWeight.Medium
+                        )
                     }
                 }
-                Row(modifier = Modifier.padding(start = 24.dp, bottom = 24.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Outlined.History, contentDescription = null, tint = versionTextColor, modifier = Modifier.size(22.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(stringResource(id = R.string.android_version, Build.VERSION.RELEASE), color = versionTextColor, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                    Text("  |  ", color = versionTextColor.copy(alpha = 0.4f), fontSize = 15.sp)
-                    Text(stringResource(id = R.string.api_level, Build.VERSION.SDK_INT), color = versionTextColor, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                
+                Spacer(modifier = Modifier.height(32.dp))
+                
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        modifier = Modifier.padding(end = 12.dp)
+                    ) {
+                        Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Outlined.History, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(stringResource(id = R.string.android_version, Build.VERSION.RELEASE), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.tertiaryContainer
+                    ) {
+                        Text(
+                            stringResource(id = R.string.api_level, Build.VERSION.SDK_INT),
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
-                Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(32.dp), colors = CardDefaults.cardColors(containerColor = innerCardColor)) {
+                
+                Spacer(modifier = Modifier.height(32.dp))
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(32.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.5f))
+                ) {
                     Column(modifier = Modifier.padding(20.dp)) {
-                        DeviceInfoItem(Icons.Outlined.Verified, stringResource(id = R.string.system_version), Build.DISPLAY, if (isDark) Color(0xFF4FC3F7) else Color(0xFF2196F3), textColor)
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp, horizontal = 56.dp), color = dividerColor)
-                        DeviceInfoItem(Icons.Outlined.History, stringResource(id = R.string.rom_version), Build.ID, if (isDark) Color(0xFFB39DDB) else Color(0xFF7E57C2), textColor)
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp, horizontal = 56.dp), color = dividerColor)
-                        DeviceInfoItem(Icons.Outlined.Fingerprint, stringResource(id = R.string.fingerprint), Build.FINGERPRINT, if (isDark) Color(0xFF9FA8DA) else Color(0xFF5C6BC0), textColor)
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp, horizontal = 56.dp), color = dividerColor)
-                        DeviceInfoItem(Icons.Outlined.Code, stringResource(id = R.string.kernel_version_label), System.getProperty("os.version") ?: "unknown", if (isDark) Color(0xFFB39DDB) else Color(0xFF9575CD), textColor)
+                        DeviceInfoItemExpressive(Icons.Outlined.Verified, stringResource(id = R.string.system_version), Build.DISPLAY, MaterialTheme.colorScheme.primary)
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                        DeviceInfoItemExpressive(Icons.Outlined.History, stringResource(id = R.string.rom_version), Build.ID, MaterialTheme.colorScheme.secondary)
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                        DeviceInfoItemExpressive(Icons.Outlined.Fingerprint, stringResource(id = R.string.fingerprint), Build.FINGERPRINT, MaterialTheme.colorScheme.tertiary)
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                        DeviceInfoItemExpressive(Icons.Outlined.Code, stringResource(id = R.string.kernel_version_label), System.getProperty("os.version") ?: "unknown", MaterialTheme.colorScheme.error)
                     }
                 }
             }
@@ -376,21 +510,27 @@ fun TweaksScreen(theme: Theme) {
     
     var expanded by remember { mutableStateOf(false) }
 
-    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp).padding(bottom = 80.dp)) {
+    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp).padding(bottom = 120.dp)) {
         BrandingTitle()
-        Text(stringResource(id = R.string.tweaks), fontSize = 32.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
-        Spacer(modifier = Modifier.height(24.dp))
-        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Text(stringResource(id = R.string.gpu_governor), fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                Box {
-                    Row(modifier = Modifier.fillMaxWidth().clickable { expanded = true }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(gpuGovernor, modifier = Modifier.weight(1f))
+        Text(stringResource(id = R.string.tweaks), fontSize = 48.sp, fontWeight = FontWeight.Black)
+        Spacer(modifier = Modifier.height(32.dp))
+        
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(40.dp)) {
+            Column(modifier = Modifier.padding(28.dp)) {
+                Text(stringResource(id = R.string.gpu_governor), fontWeight = FontWeight.Black, fontSize = 20.sp, color = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.height(12.dp))
+                Surface(
+                    onClick = { expanded = true },
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                ) {
+                    Row(modifier = Modifier.fillMaxWidth().padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(gpuGovernor, modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         Icon(Icons.Default.ArrowDropDown, contentDescription = null)
                     }
                     DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                         listOf("performance", "powersave", "msm-adreno-tz", "simple_ondemand").forEach { gov ->
-                            DropdownMenuItem(text = { Text(gov) }, onClick = { 
+                            DropdownMenuItem(text = { Text(gov, fontWeight = FontWeight.Medium) }, onClick = { 
                                 gpuGovernor = gov
                                 sharedPref.edit().putString("gpu_gov", gov).apply()
                                 expanded = false 
@@ -398,23 +538,29 @@ fun TweaksScreen(theme: Theme) {
                         }
                     }
                 }
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                TweakSwitch(Icons.Outlined.Speed, stringResource(id = R.string.overclock_cpu), cpuOverclock, MaterialTheme.colorScheme.primary) { 
+                
+                Spacer(modifier = Modifier.height(24.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                
+                TweakSwitchExpressive(Icons.Outlined.Speed, stringResource(id = R.string.overclock_cpu), cpuOverclock) { 
                     cpuOverclock = it
                     sharedPref.edit().putBoolean("cpu_oc", it).apply()
                 }
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                TweakSwitch(Icons.Outlined.Speed, stringResource(id = R.string.overclock_gpu), gpuOverclock, MaterialTheme.colorScheme.secondary) {
+                TweakSwitchExpressive(Icons.Outlined.Speed, stringResource(id = R.string.overclock_gpu), gpuOverclock) {
                     gpuOverclock = it
                     sharedPref.edit().putBoolean("gpu_oc", it).apply()
                 }
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                TweakSwitch(Icons.Outlined.PlayCircleOutline, stringResource(id = R.string.revanced_youtube), revancedYoutube, Color(0xFFFF0000)) {
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("APP TWEAKS", fontWeight = FontWeight.Black, fontSize = 14.sp, color = MaterialTheme.colorScheme.primary, letterSpacing = 2.sp)
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                // ReVanced tweaks with improved layout (Switch below for long text)
+                TweakSwitchTile(Icons.Outlined.PlayCircleOutline, stringResource(id = R.string.revanced_youtube), revancedYoutube) {
                     revancedYoutube = it
                     sharedPref.edit().putBoolean("revanced_yt", it).apply()
                 }
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                TweakSwitch(Icons.Outlined.MusicNote, stringResource(id = R.string.revanced_yt_music), revancedYtMusic, Color(0xFFFF0000)) {
+                TweakSwitchTile(Icons.Outlined.MusicNote, stringResource(id = R.string.revanced_yt_music), revancedYtMusic) {
                     revancedYtMusic = it
                     sharedPref.edit().putBoolean("revanced_ytm", it).apply()
                 }
@@ -424,23 +570,60 @@ fun TweaksScreen(theme: Theme) {
 }
 
 @Composable
-fun TweakSwitch(icon: ImageVector, label: String, checked: Boolean, tint: Color, onCheckedChange: (Boolean) -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, contentDescription = null, modifier = Modifier.size(24.dp), tint = tint)
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(label, fontWeight = FontWeight.Bold)
+fun TweakSwitchExpressive(icon: ImageVector, label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Surface(
+        onClick = { onCheckedChange(!checked) },
+        shape = RoundedCornerShape(24.dp),
+        color = Color.Transparent
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                Surface(
+                    modifier = Modifier.size(48.dp),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.secondaryContainer
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(icon, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                    }
+                }
+                Spacer(modifier = Modifier.width(20.dp))
+                Text(label, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            }
+            Switch(checked = checked, onCheckedChange = onCheckedChange)
         }
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+@Composable
+fun TweakSwitchTile(icon: ImageVector, label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Surface(
+        onClick = { onCheckedChange(!checked) },
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+        modifier = Modifier.padding(vertical = 8.dp)
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(20.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(icon, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(label, fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.weight(1f))
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                Switch(checked = checked, onCheckedChange = onCheckedChange)
+            }
+        }
     }
 }
 
 @Composable
 fun MoreScreen(theme: Theme) {
     val context = LocalContext.current
-    val isDark = isDark(theme)
-    val textColor = if (isDark) Color.White else Color.Black
-    val dividerColor = if (isDark) Color.White.copy(alpha = 0.1f) else Color.LightGray.copy(alpha = 0.4f)
     
     var uptimeMillis by remember { mutableLongStateOf(SystemClock.elapsedRealtime()) }
     var deepSleepMillis by remember { mutableLongStateOf(SystemClock.elapsedRealtime() - SystemClock.uptimeMillis()) }
@@ -465,52 +648,56 @@ fun MoreScreen(theme: Theme) {
     val batteryLevel = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
     val appsCount = context.packageManager.getInstalledApplications(0).size
 
-    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp).padding(bottom = 80.dp)) {
+    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp).padding(bottom = 120.dp)) {
         BrandingTitle()
-        Text(stringResource(id = R.string.more), fontSize = 32.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
-        Spacer(modifier = Modifier.height(24.dp))
-        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                MoreInfoItem(Icons.Outlined.BatteryFull, stringResource(id = R.string.battery_info), "$batteryLevel%", Color(0xFF4CAF50), textColor)
-                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = dividerColor)
-                MoreInfoItem(Icons.Outlined.Layers, stringResource(id = R.string.apps_count), appsCount.toString(), Color(0xFF2196F3), textColor)
-                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = dividerColor)
-                MoreInfoItem(Icons.Outlined.Memory, stringResource(id = R.string.display_chipset), Build.HARDWARE.uppercase(Locale.getDefault()), Color(0xFFFF9800), textColor)
-                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = dividerColor)
-                MoreInfoItem(Icons.Outlined.Devices, stringResource(id = R.string.device_name_label), Build.MODEL, Color(0xFF9C27B0), textColor)
-                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = dividerColor)
-                MoreInfoItem(Icons.Outlined.Timer, stringResource(id = R.string.uptime), uptime, Color(0xFF00BCD4), textColor)
-                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = dividerColor)
-                MoreInfoItem(Icons.Outlined.Timer, stringResource(id = R.string.deep_sleep), deepSleep, Color(0xFF607D8B), textColor)
+        Text(stringResource(id = R.string.more), fontSize = 48.sp, fontWeight = FontWeight.Black)
+        Spacer(modifier = Modifier.height(32.dp))
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(40.dp)) {
+            Column(modifier = Modifier.padding(28.dp)) {
+                MoreInfoItemExpressive(Icons.Outlined.BatteryFull, stringResource(id = R.string.battery_info), "$batteryLevel%", MaterialTheme.colorScheme.primary)
+                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                MoreInfoItemExpressive(Icons.Outlined.Layers, stringResource(id = R.string.apps_count), appsCount.toString(), MaterialTheme.colorScheme.secondary)
+                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                MoreInfoItemExpressive(Icons.Outlined.Memory, stringResource(id = R.string.display_chipset), Build.HARDWARE.uppercase(Locale.getDefault()), MaterialTheme.colorScheme.tertiary)
+                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                MoreInfoItemExpressive(Icons.Outlined.Devices, stringResource(id = R.string.device_name_label), Build.MODEL, MaterialTheme.colorScheme.error)
+                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                MoreInfoItemExpressive(Icons.Outlined.Timer, stringResource(id = R.string.uptime), uptime, MaterialTheme.colorScheme.primary)
+                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                MoreInfoItemExpressive(Icons.Outlined.Timer, stringResource(id = R.string.deep_sleep), deepSleep, MaterialTheme.colorScheme.secondary)
             }
         }
     }
 }
 
 @Composable
-fun MoreInfoItem(icon: ImageVector, label: String, value: String, iconColor: Color, textColor: Color) {
+fun MoreInfoItemExpressive(icon: ImageVector, label: String, value: String, accentColor: Color) {
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Box(modifier = Modifier.size(40.dp).clip(RoundedCornerShape(10.dp)).background(iconColor.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
-            Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp), tint = iconColor)
+        Surface(
+            modifier = Modifier.size(56.dp),
+            shape = RoundedCornerShape(18.dp),
+            color = accentColor.copy(alpha = 0.15f)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(icon, contentDescription = null, modifier = Modifier.size(28.dp), tint = accentColor)
+            }
         }
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(20.dp))
         Column {
-            Text(text = label, fontSize = 13.sp, color = Color.Gray)
-            Text(text = value, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = textColor)
+            Text(text = label, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+            Text(text = value, fontSize = 20.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onSurface)
         }
     }
 }
 
 @Composable
-fun DeviceInfoItem(icon: ImageVector, label: String, value: String, iconColor: Color, textColor: Color) {
-    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(modifier = Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(iconColor.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
-            Icon(icon, contentDescription = null, modifier = Modifier.size(22.dp), tint = iconColor)
-        }
-        Spacer(modifier = Modifier.width(16.dp))
+fun DeviceInfoItemExpressive(icon: ImageVector, label: String, value: String, accentColor: Color) {
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(24.dp), tint = accentColor)
+        Spacer(modifier = Modifier.width(20.dp))
         Column {
-            Text(text = label, fontSize = 13.sp, color = Color.Gray)
-            Text(text = value, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = textColor)
+            Text(text = label, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+            Text(text = value, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
         }
     }
 }
@@ -524,20 +711,26 @@ fun SettingsScreen(modifier: Modifier = Modifier, theme: MutableState<Theme>, la
     var languageExpanded by remember { mutableStateOf(false) }
     val sharedPref = remember { context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE) }
 
-    Column(modifier = modifier.fillMaxSize().padding(24.dp).padding(bottom = 80.dp)) {
+    Column(modifier = modifier.fillMaxSize().padding(24.dp).padding(bottom = 120.dp)) {
         BrandingTitle()
-        Text(text = stringResource(id = R.string.settings), fontSize = 32.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 16.dp))
-        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Text(stringResource(id = R.string.theme), fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                Box {
-                    Row(modifier = Modifier.fillMaxWidth().clickable { themeExpanded = true }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(themeName(theme.value), modifier = Modifier.weight(1f))
+        Text(text = stringResource(id = R.string.settings), fontSize = 48.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(bottom = 20.dp))
+        
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(40.dp)) {
+            Column(modifier = Modifier.padding(28.dp)) {
+                Text(stringResource(id = R.string.theme), fontWeight = FontWeight.Black, fontSize = 20.sp, color = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.height(12.dp))
+                Surface(
+                    onClick = { themeExpanded = true },
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                ) {
+                    Row(modifier = Modifier.fillMaxWidth().padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(themeName(theme.value), modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         Icon(Icons.Default.ArrowDropDown, contentDescription = "Dropdown")
                     }
                     DropdownMenu(expanded = themeExpanded, onDismissRequest = { themeExpanded = false }) {
                         Theme.entries.forEach { themeValue ->
-                            DropdownMenuItem(text = { Text(themeName(themeValue)) }, onClick = { 
+                            DropdownMenuItem(text = { Text(themeName(themeValue), fontWeight = FontWeight.Medium) }, onClick = { 
                                 theme.value = themeValue
                                 sharedPref.edit().putString("theme", themeValue.name).apply()
                                 themeExpanded = false
@@ -545,20 +738,27 @@ fun SettingsScreen(modifier: Modifier = Modifier, theme: MutableState<Theme>, la
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(stringResource(id = R.string.language), fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                Box {
-                    Row(modifier = Modifier.fillMaxWidth().clickable { languageExpanded = true }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(if (language.value == "en") "English" else "Tiếng Việt", modifier = Modifier.weight(1f))
+                
+                Spacer(modifier = Modifier.height(28.dp))
+                
+                Text(stringResource(id = R.string.language), fontWeight = FontWeight.Black, fontSize = 20.sp, color = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.height(12.dp))
+                Surface(
+                    onClick = { languageExpanded = true },
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                ) {
+                    Row(modifier = Modifier.fillMaxWidth().padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(if (language.value == "en") "English" else "Tiếng Việt", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         Icon(Icons.Default.ArrowDropDown, contentDescription = "Dropdown")
                     }
                     DropdownMenu(expanded = languageExpanded, onDismissRequest = { languageExpanded = false }) {
-                        DropdownMenuItem(text = { Text("English") }, onClick = { 
+                        DropdownMenuItem(text = { Text("English", fontWeight = FontWeight.Medium) }, onClick = { 
                             language.value = "en"
                             sharedPref.edit().putString("language", "en").apply()
                             languageExpanded = false
                         })
-                        DropdownMenuItem(text = { Text("Tiếng Việt") }, onClick = { 
+                        DropdownMenuItem(text = { Text("Tiếng Việt", fontWeight = FontWeight.Medium) }, onClick = { 
                             language.value = "vi"
                             sharedPref.edit().putString("language", "vi").apply()
                             languageExpanded = false
@@ -567,15 +767,33 @@ fun SettingsScreen(modifier: Modifier = Modifier, theme: MutableState<Theme>, la
                 }
             }
         }
-        Spacer(modifier = Modifier.height(16.dp))
-        Card(modifier = Modifier.fillMaxWidth().clickable { 
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://youtu.be/V61jZBMFjUs?si=mGFYyU4Y8XE1kZ4K"))
-            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-            context.startActivity(intent)
-        }, shape = RoundedCornerShape(24.dp), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Text(text = "HydrateLabs", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                Text(text = "ver. $versionName", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f))
+        
+        Spacer(modifier = Modifier.height(32.dp))
+        
+        Card(
+            modifier = Modifier.fillMaxWidth().clickable { 
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://youtu.be/V61jZBMFjUs?si=mGFYyU4Y8XE1kZ4K"))
+                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                context.startActivity(intent)
+            }, 
+            shape = RoundedCornerShape(40.dp), 
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+        ) {
+            Row(modifier = Modifier.padding(28.dp), verticalAlignment = Alignment.CenterVertically) {
+                Surface(
+                    modifier = Modifier.size(64.dp),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(Icons.Outlined.Description, contentDescription = null, tint = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(32.dp))
+                    }
+                }
+                Spacer(modifier = Modifier.width(24.dp))
+                Column {
+                    Text(text = "HydrateLabs", fontWeight = FontWeight.Black, fontSize = 24.sp, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    Text(text = "Version $versionName", fontSize = 16.sp, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f), fontWeight = FontWeight.Bold)
+                }
             }
         }
     }
@@ -608,7 +826,7 @@ enum class AppDestinations(
     TWEAKS(R.string.tweaks, Icons.Outlined.Extension, requiresRoot = true),
     REBOOT(R.string.reboot, Icons.Outlined.RestartAlt, requiresRoot = true),
     MORE(R.string.more, Icons.Outlined.Shield),
-    SETTINGS(R.string.settings, Icons.Outlined.Assignment),
+    SETTINGS(R.string.settings, Icons.Outlined.Tune),
 }
 
 @Preview(showBackground = true)
